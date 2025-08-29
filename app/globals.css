@@ -1,6 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* base styles */
-html, body { height: 100%; }
+/* Minimal responsive styles for taylorarndt.com */
+:root{--bg:#fbfbfc;--fg:#0f1724;--muted:#64748b;--accent:#0ea5a4}
+*{box-sizing:border-box}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--fg);margin:0;line-height:1.5}
+.container{max-width:900px;margin:0 auto;padding:1rem}
+.site-header{background:#fff;border-bottom:1px solid #e6eef3}
+.site-header .container{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;color:var(--fg);text-decoration:none}
+.site-nav a{margin-left:1rem;color:var(--muted);text-decoration:none}
+.site-nav a.cta{color:var(--accent);font-weight:600}
+.nav-toggle-label{display:none}
+@media(max-width:700px){
+  .site-header .container{gap:1rem}
+  .site-nav{display:none}
+  .nav-toggle-label{display:inline-block;cursor:pointer}
+  #nav-toggle:checked + .nav-toggle-label + .site-nav{display:block;margin-top:0.5rem}
+  .site-nav a{display:block;margin:0.5rem 0}
+}
+.site-footer{padding:1rem 0;border-top:1px solid #e6eef3;margin-top:2rem;color:var(--muted)}
+h1{margin-top:1rem}
+.quick-links ul,.links ul{padding-left:1.25rem}

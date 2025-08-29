@@ -1,7 +1,50 @@
 [
-  { "id": "github", "title": "GitHub — taylorarndt", "url": "https://github.com/taylorarndt", "category": "profile" },
-  { "id": "linkedin", "title": "LinkedIn — Taylor Arndt", "url": "https://www.linkedin.com/in/", "category": "profile" },
-  { "id": "project-a", "title": "Project A", "url": "#", "category": "project" },
-  { "id": "writing", "title": "Writing / Blog", "url": "#", "category": "writing" },
-  { "id": "press", "title": "Press Mentions", "url": "#", "category": "media" }
+  {
+    "id": "github",
+    "title": "GitHub Profile",
+    "url": "https://github.com/taylorarndt",
+    "summary": "Open source projects and code repositories showcasing development work and contributions to the tech community.",
+    "tags": ["development", "code", "open-source"],
+    "updatedAt": "2024-01-15T00:00:00.000Z"
+  },
+  {
+    "id": "linkedin",
+    "title": "LinkedIn Professional Profile",
+    "url": "https://www.linkedin.com/in/taylorarndt",
+    "summary": "Professional background, career highlights, and industry connections for networking and business opportunities.",
+    "tags": ["professional", "networking", "career"],
+    "updatedAt": "2024-01-10T00:00:00.000Z"
+  },
+  {
+    "id": "portfolio",
+    "title": "Project Portfolio",
+    "url": "#",
+    "summary": "Curated collection of key projects demonstrating technical expertise and creative problem-solving abilities.",
+    "tags": ["projects", "portfolio", "showcase"],
+    "updatedAt": "2024-01-20T00:00:00.000Z"
+  },
+  {
+    "id": "blog",
+    "title": "Technical Blog & Writing",
+    "url": "#",
+    "summary": "Insights, tutorials, and thoughts on technology, development practices, and industry trends.",
+    "tags": ["writing", "blog", "insights", "technology"],
+    "updatedAt": "2024-01-05T00:00:00.000Z"
+  },
+  {
+    "id": "speaking",
+    "title": "Speaking Engagements",
+    "url": "#",
+    "summary": "Conference talks, podcast appearances, and presentation materials on various technology topics.",
+    "tags": ["speaking", "presentations", "conferences"],
+    "updatedAt": "2024-01-12T00:00:00.000Z"
+  },
+  {
+    "id": "press",
+    "title": "Media & Press",
+    "url": "#",
+    "summary": "Press mentions, interviews, and media coverage highlighting professional achievements and expertise.",
+    "tags": ["media", "press", "interviews"],
+    "updatedAt": "2024-01-08T00:00:00.000Z"
+  }
 ]

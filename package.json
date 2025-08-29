@@ -3,14 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-  "dev": "next dev -p 3000",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint",
-  "heroku-postbuild": "next build"
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "heroku-postbuild": "next build"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.0",
+    "@types/react-dom": "^18.3.0",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
