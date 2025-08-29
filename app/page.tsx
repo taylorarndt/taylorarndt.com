@@ -53,10 +53,7 @@ export default function HomePage() {
       <div className="text-center mb-20 py-16">
         <h1 className="text-6xl font-bold mb-8 text-white">Welcome to Taylor Arndt</h1>
         <p className="text-2xl text-gray-400 max-w-4xl mx-auto leading-relaxed mb-12">
-          Taylor Arndt, a community for users to share insights, resources, and connect.
-          If you have not already done so, please explore the site to learn more about Taylor,
-          access valuable resources, and get in touch. Our content is regularly updated with
-          fresh insights and information.
+          I'm Taylor Arndt, and I help people and organizations harness the power of technology in ways that are accessible, practical, and impactful. My work focuses on AI, accessibility, and building digital solutions that make life and business better.
         </p>
         <div className="flex justify-center gap-6">
           <a href="/about" className="btn btn-primary text-lg px-8 py-4">
