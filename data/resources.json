@@ -1,0 +1,7 @@
+[
+  { "id": "github", "title": "GitHub — taylorarndt", "url": "https://github.com/taylorarndt", "category": "profile" },
+  { "id": "linkedin", "title": "LinkedIn — Taylor Arndt", "url": "https://www.linkedin.com/in/", "category": "profile" },
+  { "id": "project-a", "title": "Project A", "url": "#", "category": "project" },
+  { "id": "writing", "title": "Writing / Blog", "url": "#", "category": "writing" },
+  { "id": "press", "title": "Press Mentions", "url": "#", "category": "media" }
+]
