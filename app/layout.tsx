@@ -3,8 +3,39 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 
 export const metadata: Metadata = {
-  title: 'taylorarndt.com',
-  description: 'Taylor Arndt — personal site with links, resources, and media.'
+  title: {
+    default: 'Taylor Arndt',
+    template: '%s | Taylor Arndt'
+  },
+  description: 'Personal website of Taylor Arndt featuring professional background, resources, media appearances, and contact information.',
+  keywords: ['Taylor Arndt', 'personal website', 'professional', 'developer', 'technology'],
+  authors: [{ name: 'Taylor Arndt' }],
+  creator: 'Taylor Arndt',
+  metadataBase: new URL('https://taylorarndt.com'),
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://taylorarndt.com',
+    title: 'Taylor Arndt',
+    description: 'Personal website of Taylor Arndt featuring professional background, resources, media appearances, and contact information.',
+    siteName: 'Taylor Arndt',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Taylor Arndt',
+    description: 'Personal website of Taylor Arndt featuring professional background, resources, media appearances, and contact information.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -15,20 +46,76 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
         ) : null}
       </head>
-      <body className="min-h-dvh bg-white text-slate-900">
-        <div className="mx-auto max-w-5xl px-4">
-          <header className="flex items-center justify-between py-4 border-b">
-            <a className="font-bold" href="/">taylorarndt.com</a>
-            <nav className="flex gap-4 text-slate-600">
-              <a href="/">Home</a>
-              <a href="/about">About</a>
-              <a href="/contact">Contact</a>
-              <a href="/media">Media</a>
-              <a href="/resources" className="text-teal-600 font-medium">Resources</a>
-            </nav>
+      <body className="min-h-dvh bg-gray-50 text-gray-900 antialiased">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        
+        <div className="min-h-dvh flex flex-col">
+          <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between py-4">
+                <a 
+                  className="text-xl font-bold text-gray-900 hover:text-sky-600 transition-colors" 
+                  href="/"
+                  aria-label="Taylor Arndt - Home"
+                >
+                  Taylor Arndt
+                </a>
+                <nav className="hidden md:flex items-center space-x-8" role="navigation" aria-label="Main navigation">
+                  <a href="/" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                    Home
+                  </a>
+                  <a href="/about" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                    About
+                  </a>
+                  <a href="/media" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                    Media
+                  </a>
+                  <a href="/resources" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                    Resources
+                  </a>
+                  <a href="/contact" className="btn btn-primary">
+                    Contact
+                  </a>
+                </nav>
+                
+                {/* Mobile menu button */}
+                <button 
+                  className="md:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  aria-label="Open mobile menu"
+                  aria-expanded="false"
+                  type="button"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </header>
-          <main className="py-8">{children}</main>
-          <footer className="py-6 border-t text-sm text-slate-500">© Taylor Arndt — taylorarndt.com</footer>
+
+          <main id="main-content" className="flex-1 mx-auto max-w-6xl w-full px-4 sm:px-6 lg:px-8 py-8">
+            {children}
+          </main>
+
+          <footer className="bg-white border-t border-gray-200 mt-auto">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-8">
+              <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+                <div className="text-sm text-gray-500">
+                  © {new Date().getFullYear()} Taylor Arndt. All rights reserved.
+                </div>
+                <div className="flex space-x-6">
+                  <a href="/contact" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                    Contact
+                  </a>
+                  <a href="/resources" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                    Resources
+                  </a>
+                </div>
+              </div>
+            </div>
+          </footer>
         </div>
       </body>
     </html>
