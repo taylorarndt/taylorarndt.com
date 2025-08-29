@@ -15,20 +15,40 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
         ) : null}
       </head>
-      <body className="min-h-dvh bg-white text-slate-900">
-        <div className="mx-auto max-w-5xl px-4">
-          <header className="flex items-center justify-between py-4 border-b">
-            <a className="font-bold" href="/">taylorarndt.com</a>
-            <nav className="flex gap-4 text-slate-600">
-              <a href="/">Home</a>
-              <a href="/about">About</a>
-              <a href="/contact">Contact</a>
-              <a href="/media">Media</a>
-              <a href="/resources" className="text-teal-600 font-medium">Resources</a>
+      <body className="min-h-screen bg-slate-900 text-white">
+        <div className="flex min-h-screen">
+          {/* Sidebar */}
+          <aside className="w-64 bg-slate-800 p-6">
+            <div className="mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-4 flex items-center justify-center">
+                <span className="text-2xl font-bold">TA</span>
+              </div>
+            </div>
+            <nav className="space-y-2">
+              <a href="/" className="flex items-center gap-3 px-3 py-2 text-white hover:bg-slate-700 rounded-lg transition-colors">
+                <span>Home</span>
+              </a>
+              <a href="/about" className="flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                <span>About</span>
+              </a>
+              <a href="/contact" className="flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                <span>Contact</span>
+              </a>
+              <a href="/media" className="flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                <span>Media</span>
+              </a>
+              <a href="/resources" className="flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
+                <span>Resources</span>
+              </a>
             </nav>
-          </header>
-          <main className="py-8">{children}</main>
-          <footer className="py-6 border-t text-sm text-slate-500">© Taylor Arndt — taylorarndt.com</footer>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 p-12 flex items-center justify-center min-h-screen">
+            <div className="w-full">
+              {children}
+            </div>
+          </main>
         </div>
       </body>
     </html>
