@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 
 export const metadata: Metadata = {
-  title: 'taylorarndt.com',
+  title: 'taylorarndt.com — Home',
   description: 'Taylor Arndt — personal site with links, resources, and media.'
 }
 
@@ -15,21 +15,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
         ) : null}
       </head>
-      <body className="min-h-dvh bg-white text-slate-900">
-        <div className="mx-auto max-w-5xl px-4">
-          <header className="flex items-center justify-between py-4 border-b">
-            <a className="font-bold" href="/">taylorarndt.com</a>
-            <nav className="flex gap-4 text-slate-600">
+      <body>
+        <header className="site-header">
+          <div className="container">
+            <a className="brand" href="/">taylorarndt.com</a>
+            <input id="nav-toggle" type="checkbox" hidden />
+            <label htmlFor="nav-toggle" className="nav-toggle-label">☰</label>
+            <nav className="site-nav">
               <a href="/">Home</a>
               <a href="/about">About</a>
               <a href="/contact">Contact</a>
               <a href="/media">Media</a>
-              <a href="/resources" className="text-teal-600 font-medium">Resources</a>
+              <a href="/resources" className="cta">Resources</a>
             </nav>
-          </header>
-          <main className="py-8">{children}</main>
-          <footer className="py-6 border-t text-sm text-slate-500">© Taylor Arndt — taylorarndt.com</footer>
-        </div>
+          </div>
+        </header>
+
+        <main className="container">{children}</main>
+
+        <footer className="site-footer">
+          <div className="container">© Taylor Arndt — taylorarndt.com</div>
+        </footer>
       </body>
     </html>
   )

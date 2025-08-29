@@ -1,97 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Custom CSS Variables for consistent theming */
-:root {
-  --primary-color: #0ea5e9;
-  --primary-dark: #0284c7;
-  --accent-color: #0d9488;
-  --accent-dark: #0f766e;
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
-  --background: #ffffff;
-  --surface: #f9fafb;
-  --border: #e5e7eb;
-  --border-light: #f3f4f6;
+/* Minimal responsive styles for taylorarndt.com */
+:root{--bg:#fbfbfc;--fg:#0f1724;--muted:#64748b;--accent:#0ea5a4}
+*{box-sizing:border-box}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--fg);margin:0;line-height:1.5}
+.container{max-width:900px;margin:0 auto;padding:1rem}
+.site-header{background:#fff;border-bottom:1px solid #e6eef3}
+.site-header .container{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:700;color:var(--fg);text-decoration:none}
+.site-nav a{margin-left:1rem;color:var(--muted);text-decoration:none}
+.site-nav a.cta{color:var(--accent);font-weight:600}
+.nav-toggle-label{display:none}
+@media(max-width:700px){
+  .site-header .container{gap:1rem}
+  .site-nav{display:none}
+  .nav-toggle-label{display:inline-block;cursor:pointer}
+  #nav-toggle:checked + .nav-toggle-label + .site-nav{display:block;margin-top:0.5rem}
+  .site-nav a{display:block;margin:0.5rem 0}
 }
-
-/* Base styles */
-html, body { 
-  height: 100%; 
-  scroll-behavior: smooth;
-}
-
-/* Focus styles for accessibility */
-:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* Skip to content link */
-.skip-link {
-  position: absolute;
-  top: -40px;
-  left: 6px;
-  background: var(--primary-color);
-  color: white;
-  padding: 8px;
-  text-decoration: none;
-  border-radius: 4px;
-  z-index: 1000;
-}
-
-.skip-link:focus {
-  top: 6px;
-}
-
-/* Smooth animations with respect for reduced motion */
-@media (prefers-reduced-motion: no-preference) {
-  * {
-    transition: colors 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-  }
-}
-
-/* Enhanced typography */
-.prose {
-  line-height: 1.7;
-}
-
-.prose h1, .prose h2, .prose h3, .prose h4 {
-  color: var(--text-primary);
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-/* Button component styles */
-.btn {
-  @apply px-6 py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
-}
-
-.btn-primary {
-  @apply bg-sky-500 text-white hover:bg-sky-600 focus:ring-sky-500;
-}
-
-.btn-secondary {
-  @apply bg-teal-600 text-white hover:bg-teal-700 focus:ring-teal-500;
-}
-
-.btn-outline {
-  @apply border-2 border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500;
-}
-
-/* Card component styles */
-.card {
-  @apply bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200;
-}
-
-/* Link styles */
-.link {
-  @apply text-teal-600 hover:text-teal-700 underline-offset-2 hover:underline;
-}
-
-.link-primary {
-  @apply text-sky-600 hover:text-sky-700 underline-offset-2 hover:underline;
-}
+.site-footer{padding:1rem 0;border-top:1px solid #e6eef3;margin-top:2rem;color:var(--muted)}
+h1{margin-top:1rem}
+.quick-links ul,.links ul{padding-left:1.25rem}
