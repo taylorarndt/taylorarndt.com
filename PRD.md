@@ -1,5 +1,5 @@
 # Product Requirements Document (PRD) — taylorarndt.com
-
+  
 - Document version: 0.1 (Draft)
 - Last updated: 2025-08-29
 - Owner: Site Owner / Maintainers
