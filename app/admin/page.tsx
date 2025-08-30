@@ -239,12 +239,20 @@ export default function AdminPage() {
           <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
           {userData && <p className="text-gray-400 mt-2">Welcome, {userData.name || userData.email}</p>}
         </div>
-        <a
-          href="/api/auth/logout"
-          className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          Logout
-        </a>
+        <div className="flex gap-4">
+          <a
+            href="/admin/debug"
+            className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            🔧 Debug
+          </a>
+          <a
+            href="/api/auth/logout"
+            className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            Logout
+          </a>
+        </div>
       </div>
 
       {/* Stats */}
