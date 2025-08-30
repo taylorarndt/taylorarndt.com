@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import fs from 'fs/promises'
 
 function requireAdmin(req: Request) {

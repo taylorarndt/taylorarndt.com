@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
+export const dynamic = 'force-dynamic'
+import { query } from '../../../../../lib/db'
+import { getServerUser } from '../../../../../lib/auth0'
 
-function requireAdmin(req: Request) {
-  const key = req.headers.get('x-admin-key') || ''
-  return key && process.env.ADMIN_KEY && key === process.env.ADMIN_KEY
+// POST /api/ideas/[id]/approve - Admin approves idea
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  return await approveIdea(req, { params });
 }
 
-// PUT /api/ideas/[id]/approve - Admin approves idea
+// PUT /api/ideas/[id]/approve - Admin approves idea (same functionality as POST)
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  return await approveIdea(req, { params });
+}
+
+async function approveIdea(req: Request, { params }: { params: { id: string } }) {
   try {
-    if (!requireAdmin(req)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = await getServerUser()
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 401 })
     }
 
     const ideaId = params.id
@@ -18,32 +25,34 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: 'Missing idea ID' }, { status: 400 })
     }
 
-    const ideasPath = './data/ideas.json'
-    const ideas = JSON.parse(await fs.readFile(ideasPath, 'utf8').catch(() => '[]'))
-    
-    const ideaIndex = ideas.findIndex((idea: any) => idea.id === ideaId)
-    if (ideaIndex === -1) {
+    // Ensure idea exists and is pending
+    const { rows: existing } = await query(
+      'SELECT status FROM ideas WHERE id = $1',
+      [ideaId]
+    )
+    if (existing.length === 0) {
       return NextResponse.json({ error: 'Idea not found' }, { status: 404 })
     }
-
-    const idea = ideas[ideaIndex]
-    if (idea.status !== 'Pending') {
+    if (existing[0].status !== 'Pending') {
       return NextResponse.json({ error: 'Can only approve pending ideas' }, { status: 400 })
     }
 
-    // Update idea status
-    ideas[ideaIndex] = {
-      ...idea,
-      status: 'Approved',
-      updatedAt: new Date().toISOString(),
-      approvedAt: new Date().toISOString()
-    }
+    const now = new Date().toISOString()
+    const { rows } = await query(
+      `UPDATE ideas
+       SET status = 'Approved', updated_at = $2, approved_at = $2
+       WHERE id = $1
+       RETURNING id, title, description, category, status,
+                 submitted_by as "submittedBy",
+                 submitted_at as "submittedAt",
+                 created_at as "createdAt",
+                 updated_at as "updatedAt",
+                 scheduled_date as "scheduledDate",
+                 youtube_link as "youtubeLink"`,
+      [ideaId, now]
+    )
 
-    await fs.writeFile(ideasPath, JSON.stringify(ideas, null, 2), 'utf8')
-
-    // TODO: Send email notification to submitter
-    
-    return NextResponse.json({ ok: true, idea: ideas[ideaIndex] })
+    return NextResponse.json({ ok: true, idea: rows[0] })
   } catch (err) {
     console.error('Approve idea error', err)
     return NextResponse.json({ error: 'Failed to approve idea' }, { status: 500 })

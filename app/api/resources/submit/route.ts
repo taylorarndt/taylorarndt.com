@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import fs from 'fs/promises'
 
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()

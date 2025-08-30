@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from '../../lib/auth-context'
+import { useUser } from '@auth0/nextjs-auth0/client'
 import { useState, useEffect } from 'react'
 
 interface Idea {
@@ -24,26 +24,48 @@ interface Vote {
 }
 
 export default function StreamsPage() {
-  const { user, isLoading: authLoading, login, logout } = useAuth()
+  const { user, isLoading: authLoading } = useUser()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created')
-  const [showLogin, setShowLogin] = useState(false)
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginName, setLoginName] = useState('')
-  const [loginLoading, setLoginLoading] = useState(false)
+  const [showLogin] = useState(false)
+  const [userInfo, setUserInfo] = useState<{ email?: string; name?: string; isAdmin?: boolean } | null>(null)
+  const [userInfoLoading, setUserInfoLoading] = useState(false)
 
   useEffect(() => {
     fetchIdeas()
   }, [filter, sortBy])
 
   useEffect(() => {
-    if (user?.email) {
+    // Fetch user info immediately when user is available
+    if (user?.email && !authLoading) {
       fetchUserVotes()
+      fetchUserInfo()
     }
-  }, [user])
+  }, [user?.email, authLoading]) // Trigger when user email is available and not loading
+
+  const fetchUserInfo = async () => {
+    setUserInfoLoading(true)
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Frontend user info:', data) // Debug log
+        setUserInfo(data.user)
+      } else {
+        console.error('Failed to fetch user info:', response.status)
+      }
+    } catch (err) {
+      console.error('Failed to fetch user info:', err)
+    } finally {
+      setUserInfoLoading(false)
+    }
+  }
 
   const fetchIdeas = async () => {
     try {
@@ -75,11 +97,46 @@ export default function StreamsPage() {
     }
   }
 
-  const handleVote = async (ideaId: string) => {
-    if (!user) {
-      setShowLogin(true)
-      return
+  const handleApprove = async (ideaId: string) => {
+    try {
+      const response = await fetch(`/api/ideas/${ideaId}/approve`, { method: 'POST' })
+      if (response.ok) {
+        fetchIdeas() // Refresh the list
+        alert('Idea approved!')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to approve idea')
+      }
+    } catch (err) {
+      console.error('Approve error:', err)
+      alert('Failed to approve idea')
     }
+  }
+
+  const handleReject = async (ideaId: string) => {
+    if (!confirm('Are you sure you want to reject this idea?')) return
+    
+    try {
+      const response = await fetch(`/api/ideas/${ideaId}/status`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Rejected' })
+      })
+      if (response.ok) {
+        fetchIdeas() // Refresh the list
+        alert('Idea rejected')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to reject idea')
+      }
+    } catch (err) {
+      console.error('Reject error:', err)
+      alert('Failed to reject idea')
+    }
+  }
+
+  const handleVote = async (ideaId: string) => {
+  if (!user) return (window.location.href = '/api/auth/login') as any
 
     try {
       const hasVoted = userVotes.has(ideaId)
@@ -113,21 +170,7 @@ export default function StreamsPage() {
     }
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoginLoading(true)
-    
-    try {
-      await login(loginEmail, loginName)
-      setShowLogin(false)
-      setLoginEmail('')
-      setLoginName('')
-    } catch (err: any) {
-      alert(err.message || 'Login failed')
-    } finally {
-      setLoginLoading(false)
-    }
-  }
+  // Auth handled by Auth0 login/logout routes
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -169,7 +212,7 @@ export default function StreamsPage() {
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold mb-6 text-white">YouTube Live Stream Ideas</h1>
-        <p className="text-xl text-gray-400 max-w-4xl mx-auto leading-relaxed mb-8">
+    <p className="text-xl text-gray-400 max-w-4xl mx-auto leading-relaxed mb-8">
           Share your ideas for live streams and vote on ideas you'd like to see. Authenticated users can submit ideas and vote on approved suggestions.
         </p>
         
@@ -178,24 +221,41 @@ export default function StreamsPage() {
             <a href="/streams/submit" className="btn btn-primary">
               Submit New Idea
             </a>
-            <button 
-              onClick={logout}
-              className="btn border border-gray-600 text-white hover:bg-gray-900"
-            >
-              Logout ({user.email})
-            </button>
+            {userInfo?.isAdmin && !userInfoLoading && (
+              <a href="/admin" className="btn bg-purple-600 hover:bg-purple-700 text-white">
+                Admin Panel
+              </a>
+            )}
+            <a href="/api/auth/logout" className="btn border border-gray-600 text-white hover:bg-gray-900">Logout ({user.email})</a>
           </div>
         ) : (
           <div className="flex justify-center gap-4">
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="btn btn-primary"
-            >
-              Login to Submit Ideas
-            </button>
+      <a href="/api/auth/login" className="btn btn-primary">Login to Submit Ideas</a>
           </div>
         )}
       </div>
+
+      {/* Debug Info */}
+      {user && (
+        <div className="mb-8 p-4 bg-gray-900 border border-gray-700 rounded-lg max-w-2xl mx-auto">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-lg font-semibold text-white">Debug Info</h3>
+            <button 
+              onClick={fetchUserInfo}
+              className="text-xs bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded"
+              disabled={userInfoLoading}
+            >
+              {userInfoLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          <div className="text-sm text-gray-300 space-y-1">
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Name:</strong> {user.name || 'Not set'}</p>
+            <p><strong>Admin Status:</strong> {userInfoLoading ? '⏳ Loading...' : userInfo?.isAdmin ? '✅ Admin' : '❌ Regular User'}</p>
+            <p><strong>Can Approve Ideas:</strong> {userInfoLoading ? 'Checking...' : userInfo?.isAdmin ? 'Yes - Admin user in database' : 'No - Contact admin to grant access'}</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-8 flex flex-wrap gap-4 justify-center">
@@ -206,11 +266,16 @@ export default function StreamsPage() {
             className="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white"
           >
             <option value="all">All Ideas</option>
-            <option value="Pending">Pending Review</option>
             <option value="Approved">Approved</option>
             <option value="Scheduled">Scheduled</option>
             <option value="Live">Live Now</option>
             <option value="Completed">Completed</option>
+            {userInfo?.isAdmin && !userInfoLoading && (
+              <>
+                <option value="Pending">Pending Review</option>
+                <option value="Rejected">Rejected</option>
+              </>
+            )}
           </select>
           
           <select 
@@ -268,6 +333,24 @@ export default function StreamsPage() {
               <h3 className="text-xl font-semibold mb-3 text-white">{idea.title}</h3>
               <p className="text-gray-400 mb-4 leading-relaxed">{idea.description}</p>
               
+              {/* Admin Actions */}
+              {userInfo?.isAdmin && !userInfoLoading && idea.status === 'Pending' && (
+                <div className="mb-4 flex gap-2">
+                  <button
+                    onClick={() => handleApprove(idea.id)}
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    ✅ Approve
+                  </button>
+                  <button
+                    onClick={() => handleReject(idea.id)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    ❌ Reject
+                  </button>
+                </div>
+              )}
+              
               <div className="text-sm text-gray-500 space-y-1">
                 <p>Submitted: {formatDate(idea.submittedAt)}</p>
                 {idea.scheduledDate && (
@@ -294,61 +377,7 @@ export default function StreamsPage() {
       )}
 
       {/* Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold mb-6 text-white">Login</h2>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="your@email.com"
-                />
-              </div>
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
-                  Display Name (optional)
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  value={loginName}
-                  onChange={(e) => setLoginName(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Your name"
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  disabled={loginLoading || !loginEmail.trim()}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
-                >
-                  {loginLoading ? 'Logging in...' : 'Login'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLogin(false)}
-                  className="px-4 py-3 border border-gray-600 text-white hover:bg-gray-800 rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-            <p className="text-sm text-gray-500 mt-4">
-              No password required. Just enter your email to get started.
-            </p>
-          </div>
-        </div>
-      )}
+  {/* Auth0 handles login UI externally */}
     </div>
   )
 }

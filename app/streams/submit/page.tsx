@@ -1,11 +1,11 @@
 "use client"
 
-import { useAuth } from '../../../lib/auth-context'
+import { useUser } from '@auth0/nextjs-auth0/client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function SubmitIdeaPage() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useUser()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({

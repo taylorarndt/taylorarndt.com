@@ -157,7 +157,7 @@ export default function MediaPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-8 space-y-12">
+    <div className="max-w-6xl mx-auto space-y-12">
       {/* Header */}
       <section className="text-center space-y-6">
         <h1 className="text-4xl md:text-5xl font-bold text-white">
@@ -179,9 +179,9 @@ export default function MediaPage() {
             </span>
             Featured Content
           </h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8">
             {featuredItems.map((item) => (
-              <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:bg-gray-800 transition-colors">
+              <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:bg-gray-800 transition-all hover:border-gray-700">
                 {/* Image */}
                 {item.image && (
                   <div className="relative h-48 w-full">
@@ -194,7 +194,7 @@ export default function MediaPage() {
                     />
                   </div>
                 )}
-                <div className="p-5">
+                <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getTypeColor(item.type, item.source)}`}>
                       {getTypeIcon(item.type)}
@@ -244,9 +244,9 @@ export default function MediaPage() {
         </h2>
         
         {/* Grid Layout for All Items */}
-        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {otherItems.map((item) => (
-            <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:bg-gray-800 transition-colors">
+            <div key={item.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:bg-gray-800 transition-all hover:border-gray-700">
               {/* Image */}
               {item.image && (
                 <div className="relative h-40 w-full">
@@ -259,7 +259,7 @@ export default function MediaPage() {
                   />
                 </div>
               )}
-              <div className="p-5">
+              <div className="p-4">
                 <div className="flex items-center space-x-2 mb-2">
                   <div className={`w-6 h-6 rounded flex items-center justify-center ${getTypeColor(item.type, item.source)}`}>
                     {getTypeIcon(item.type)}

@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
+import { useUser } from '@auth0/nextjs-auth0/client'
 
 export default function MobileNavigation() {
   const [isOpen, setIsOpen] = useState(false)
+  const { user, isLoading } = useUser()
 
   return (
     <>
@@ -81,6 +83,30 @@ export default function MobileNavigation() {
                 >
                   Contact
                 </a>
+                <div className="pt-4 border-t">
+                  {isLoading ? (
+                    <span className="block text-gray-600 text-sm">Loading...</span>
+                  ) : user ? (
+                    <>
+                      <span className="block text-gray-600 text-sm mb-2">{user.name || user.email}</span>
+                      <a 
+                        href="/api/auth/logout" 
+                        className="block text-gray-600 hover:text-gray-900 font-medium transition-colors py-2"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Logout
+                      </a>
+                    </>
+                  ) : (
+                    <a 
+                      href="/api/auth/login" 
+                      className="block text-gray-600 hover:text-gray-900 font-medium transition-colors py-2"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Login
+                    </a>
+                  )}
+                </div>
               </div>
             </nav>
           </div>

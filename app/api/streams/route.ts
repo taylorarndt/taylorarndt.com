@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
+import { query } from '../../../lib/db'
+export const dynamic = 'force-dynamic'
 
 // GET /api/streams - List scheduled/live/completed streams
 export async function GET(req: Request) {
@@ -7,30 +8,31 @@ export async function GET(req: Request) {
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
     
-    const ideasPath = './data/ideas.json'
-    const ideas = JSON.parse(await fs.readFile(ideasPath, 'utf8').catch(() => '[]'))
-    
-    // Filter for stream-related statuses
-    const streamStatuses = ['Scheduled', 'Live', 'Completed']
-    let streams = ideas.filter((idea: any) => streamStatuses.includes(idea.status))
-    
-    // Further filter by specific status if provided
-    if (status && streamStatuses.includes(status)) {
-      streams = streams.filter((idea: any) => idea.status === status)
+    const params: any[] = []
+    const where: string[] = ["i.status in ('Scheduled','Live','Completed')"]
+    if (status && ['Scheduled','Live','Completed'].includes(status)) {
+      params.push(status)
+      where.push(`i.status = $${params.length}`)
     }
-    
-    // Sort by scheduled date (ascending for upcoming, descending for completed)
-    streams.sort((a: any, b: any) => {
-      if (a.status === 'Completed' && b.status === 'Completed') {
-        // Completed streams: most recent first
-        return new Date(b.completedAt || b.updatedAt).getTime() - new Date(a.completedAt || a.updatedAt).getTime()
-      } else {
-        // Scheduled/Live streams: earliest first
-        return new Date(a.scheduledDate || a.updatedAt).getTime() - new Date(b.scheduledDate || b.updatedAt).getTime()
-      }
-    })
-    
-    return NextResponse.json({ streams })
+    const orderBy = status === 'Completed'
+      ? 'COALESCE(i.completed_at, i.updated_at) DESC'
+      : 'COALESCE(i.scheduled_date, i.updated_at) ASC'
+
+    const sql = `
+      SELECT i.id, i.title, i.description, i.category, i.status,
+             i.submitted_by as "submittedBy",
+             i.submitted_at as "submittedAt",
+             i.created_at as "createdAt",
+             i.updated_at as "updatedAt",
+             i.scheduled_date as "scheduledDate",
+             i.youtube_link as "youtubeLink",
+             i.completed_at as "completedAt"
+      FROM ideas i
+      WHERE ${where.join(' AND ')}
+      ORDER BY ${orderBy}
+    `
+    const { rows } = await query(sql, params)
+    return NextResponse.json({ streams: rows })
   } catch (err) {
     console.error('List streams error', err)
     return NextResponse.json({ error: 'Failed to list streams' }, { status: 500 })

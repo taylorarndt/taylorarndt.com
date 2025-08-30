@@ -1,63 +1,57 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import { getSession } from '../../../../../lib/auth'
+export const dynamic = 'force-dynamic'
+import { query } from '../../../../../lib/db'
+import { getServerUser } from '../../../../../lib/auth0'
 
 // POST /api/ideas/[id]/vote - Cast vote
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession()
-    if (!session?.user) {
+  const user = await getServerUser()
+  if (!user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const ideaId = params.id
-    const userEmail = session.user.email
+  const userEmail = user.email
 
     if (!ideaId) {
       return NextResponse.json({ error: 'Missing idea ID' }, { status: 400 })
     }
 
-    const ideasPath = './data/ideas.json'
-    const votesPath = './data/votes.json'
-
     // Check if idea exists and is approved
-    const ideas = JSON.parse(await fs.readFile(ideasPath, 'utf8').catch(() => '[]'))
-    const idea = ideas.find((i: any) => i.id === ideaId)
-    
-    if (!idea) {
+    const { rows: ideaRows } = await query('SELECT status FROM ideas WHERE id = $1', [ideaId])
+    if (ideaRows.length === 0) {
       return NextResponse.json({ error: 'Idea not found' }, { status: 404 })
     }
-
-    if (idea.status !== 'Approved') {
+    if (ideaRows[0].status !== 'Approved') {
       return NextResponse.json({ error: 'Can only vote on approved ideas' }, { status: 400 })
     }
 
-    const votes = JSON.parse(await fs.readFile(votesPath, 'utf8').catch(() => '[]'))
-    
-    // Check if user already voted for this idea
-    const existingVote = votes.find((vote: any) => vote.ideaId === ideaId && vote.userEmail === userEmail)
-    
-    if (existingVote) {
+    // Attempt to insert vote (unique constraint enforces single vote per user per idea)
+    const id = `vote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const now = new Date().toISOString()
+    try {
+      await query(
+        'INSERT INTO votes (id, idea_id, user_email, created_at) VALUES ($1,$2,$3,$4)',
+        [id, ideaId, userEmail, now]
+      )
+    } catch (e: any) {
+      // Unique violation
       return NextResponse.json({ error: 'You have already voted for this idea' }, { status: 400 })
     }
 
-    // Add the vote
-    const vote = {
-      id: `vote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ideaId,
-      userEmail,
-      createdAt: new Date().toISOString()
-    }
-
-    votes.push(vote)
-    await fs.writeFile(votesPath, JSON.stringify(votes, null, 2), 'utf8')
-
-    // Get updated vote count
-    const voteCount = votes.filter((v: any) => v.ideaId === ideaId).length
-
-    return NextResponse.json({ ok: true, voteCount })
+    const { rows } = await query<{ count: string }>('SELECT COUNT(*)::int as count FROM votes WHERE idea_id = $1', [ideaId])
+    return NextResponse.json({ ok: true, voteCount: Number(rows[0].count) })
   } catch (err) {
     console.error('Vote error', err)
+    
+    // If database is not configured, return disabled message
+    if (err instanceof Error && err.message.includes('DATABASE_URL is not set')) {
+      return NextResponse.json({ 
+        error: 'Database not configured - voting is currently disabled'
+      }, { status: 503 })
+    }
+    
     return NextResponse.json({ error: 'Failed to vote' }, { status: 500 })
   }
 }
@@ -65,37 +59,34 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 // DELETE /api/ideas/[id]/vote - Remove vote
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getSession()
-    if (!session?.user) {
+  const user = await getServerUser()
+  if (!user?.email) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     const ideaId = params.id
-    const userEmail = session.user.email
+  const userEmail = user.email
 
     if (!ideaId) {
       return NextResponse.json({ error: 'Missing idea ID' }, { status: 400 })
     }
 
-    const votesPath = './data/votes.json'
-    const votes = JSON.parse(await fs.readFile(votesPath, 'utf8').catch(() => '[]'))
-    
-    // Find and remove the user's vote
-    const voteIndex = votes.findIndex((vote: any) => vote.ideaId === ideaId && vote.userEmail === userEmail)
-    
-    if (voteIndex === -1) {
+    const { rowCount } = await query('DELETE FROM votes WHERE idea_id = $1 AND user_email = $2', [ideaId, userEmail])
+    if (rowCount === 0) {
       return NextResponse.json({ error: 'Vote not found' }, { status: 404 })
     }
-
-    votes.splice(voteIndex, 1)
-    await fs.writeFile(votesPath, JSON.stringify(votes, null, 2), 'utf8')
-
-    // Get updated vote count
-    const voteCount = votes.filter((v: any) => v.ideaId === ideaId).length
-
-    return NextResponse.json({ ok: true, voteCount })
+    const { rows } = await query<{ count: string }>('SELECT COUNT(*)::int as count FROM votes WHERE idea_id = $1', [ideaId])
+    return NextResponse.json({ ok: true, voteCount: Number(rows[0].count) })
   } catch (err) {
     console.error('Remove vote error', err)
+    
+    // If database is not configured, return disabled message
+    if (err instanceof Error && err.message.includes('DATABASE_URL is not set')) {
+      return NextResponse.json({ 
+        error: 'Database not configured - voting is currently disabled'
+      }, { status: 503 })
+    }
+    
     return NextResponse.json({ error: 'Failed to remove vote' }, { status: 500 })
   }
 }

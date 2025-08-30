@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import { getSession } from '../../../lib/auth'
+import { query } from '../../../lib/db'
+import { getServerUser } from '../../../lib/auth0'
+export const dynamic = 'force-dynamic'
 
 // Simple in-memory rate limiting (for MVP - in production, use Redis or database)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
@@ -28,47 +29,78 @@ function sanitizeInput(input: string): string {
   return input.trim().replace(/[<>]/g, '')
 }
 
-function requireAdmin(req: Request) {
-  const key = req.headers.get('x-admin-key') || ''
-  return key && process.env.ADMIN_KEY && key === process.env.ADMIN_KEY
-}
-
-// GET /api/ideas - List all ideas with filtering
+// GET /api/ideas - List ideas with user-based filtering
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
     const sortBy = url.searchParams.get('sort') || 'created'
     
-    const ideasPath = './data/ideas.json'
-    const votesPath = './data/votes.json'
+    // Get current user to determine what they can see
+    const user = await getServerUser()
+    const userEmail = user?.email
+    const isAdmin = user?.isAdmin || false
     
-    const ideas = JSON.parse(await fs.readFile(ideasPath, 'utf8').catch(() => '[]'))
-    const votes = JSON.parse(await fs.readFile(votesPath, 'utf8').catch(() => '[]'))
+    // Build SQL with user-based filtering
+    const where: string[] = []
+    const params: any[] = []
     
-    // Add vote counts to ideas
-    const ideasWithVotes = ideas.map((idea: any) => ({
-      ...idea,
-      voteCount: votes.filter((vote: any) => vote.ideaId === idea.id).length
-    }))
-    
-    // Filter by status if provided
-    let filteredIdeas = status 
-      ? ideasWithVotes.filter((idea: any) => idea.status === status)
-      : ideasWithVotes
-    
-    // Sort ideas
-    if (sortBy === 'votes') {
-      filteredIdeas.sort((a: any, b: any) => b.voteCount - a.voteCount)
-    } else if (sortBy === 'updated') {
-      filteredIdeas.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    } else {
-      filteredIdeas.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    if (!isAdmin) {
+      // Regular users can only see:
+      // 1. Approved ideas (all)
+      // 2. Their own submissions (any status)
+      if (userEmail) {
+        where.push(`(i.status = 'Approved' OR i.submitted_by = $${params.length + 1})`)
+        params.push(userEmail)
+      } else {
+        // Not logged in - only approved ideas
+        where.push(`i.status = 'Approved'`)
+      }
     }
     
-    return NextResponse.json({ ideas: filteredIdeas })
+    // Additional status filter for admins or when specifically requested
+    if (status && isAdmin) {
+      params.push(status)
+      where.push(`i.status = $${params.length}`)
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
+
+    let orderBy = 'i.created_at DESC'
+    if (sortBy === 'votes') orderBy = 'vote_count DESC, i.created_at DESC'
+    else if (sortBy === 'updated') orderBy = 'i.updated_at DESC'
+
+    const sql = `
+      SELECT i.id, i.title, i.description, i.category, i.status,
+             i.submitted_by as "submittedBy",
+             i.submitted_at as "submittedAt",
+             i.created_at as "createdAt",
+             i.updated_at as "updatedAt",
+             i.scheduled_date as "scheduledDate",
+             i.youtube_link as "youtubeLink",
+             COALESCE(v.cnt, 0) AS "voteCount"
+      FROM ideas i
+      LEFT JOIN (
+        SELECT idea_id, COUNT(*)::int AS cnt
+        FROM votes
+        GROUP BY idea_id
+      ) v ON v.idea_id = i.id
+      ${whereSql}
+      ORDER BY ${orderBy}
+    `
+
+    const { rows } = await query(sql, params)
+    return NextResponse.json({ ideas: rows })
   } catch (err) {
     console.error('List ideas error', err)
+    
+    // If database is not configured, return empty list instead of error
+    if (err instanceof Error && err.message.includes('DATABASE_URL is not set')) {
+      return NextResponse.json({ 
+        ideas: [],
+        message: 'Database not configured - displaying empty list'
+      })
+    }
+    
     return NextResponse.json({ error: 'Failed to list ideas' }, { status: 500 })
   }
 }
@@ -76,8 +108,8 @@ export async function GET(req: Request) {
 // POST /api/ideas - Submit new idea (auth required)
 export async function POST(req: Request) {
   try {
-    const session = await getSession()
-    if (!session?.user) {
+  const user = await getServerUser()
+  if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
@@ -105,28 +137,43 @@ export async function POST(req: Request) {
     const id = `idea-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const now = new Date().toISOString()
 
-    const idea = {
-      id,
-      title,
-      description,
-      category: category || 'General',
-      status: 'Pending',
-      submittedBy: session.user.email,
-      submittedAt: now,
-      createdAt: now,
-      updatedAt: now,
-      scheduledDate: null,
-      youtubeLink: null
-    }
+    await query(
+      `INSERT INTO ideas (
+        id, title, description, category, status,
+        submitted_by, submitted_at, created_at, updated_at,
+        scheduled_date, youtube_link
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [
+        id,
+        title,
+        description,
+        category || 'General',
+        'Pending',
+  user.email,
+        now,
+        now,
+        now,
+        null,
+        null,
+      ]
+    )
 
-    const ideasPath = './data/ideas.json'
-    const ideas = JSON.parse(await fs.readFile(ideasPath, 'utf8').catch(() => '[]'))
-    ideas.push(idea)
-    await fs.writeFile(ideasPath, JSON.stringify(ideas, null, 2), 'utf8')
-
-    return NextResponse.json({ ok: true, idea })
+    return NextResponse.json({ ok: true, idea: {
+      id, title, description, category: category || 'General', status: 'Pending',
+  submittedBy: user.email, submittedAt: now, createdAt: now, updatedAt: now,
+      scheduledDate: null, youtubeLink: null, voteCount: 0
+    } })
   } catch (err) {
     console.error('Submit idea error', err)
+    
+    // If database is not configured, return a helpful message instead of error
+    if (err instanceof Error && err.message.includes('DATABASE_URL is not set')) {
+      return NextResponse.json({ 
+        error: 'Database not configured - idea submission is currently disabled',
+        message: 'Please configure DATABASE_URL to enable idea submissions'
+      }, { status: 503 })
+    }
+    
     return NextResponse.json({ error: 'Failed to submit idea' }, { status: 500 })
   }
 }

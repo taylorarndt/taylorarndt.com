@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from 'react'
+import { useUser } from '@auth0/nextjs-auth0/client'
 
 interface Idea {
   id: string
@@ -15,53 +16,61 @@ interface Idea {
   voteCount: number
 }
 
+interface UserData {
+  email: string
+  name: string
+  isAdmin: boolean
+}
+
 export default function AdminPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [loading, setLoading] = useState(true)
-  const [adminKey, setAdminKey] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const { user, error, isLoading } = useUser()
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('adminKey')
-    if (savedKey) {
-      setAdminKey(savedKey)
-      setIsAuthenticated(true)
-      fetchIdeas(savedKey)
-    } else {
+    if (!isLoading && user) {
+      fetchUserData()
+    } else if (!isLoading && !user) {
       setLoading(false)
     }
-  }, [])
+  }, [user, isLoading])
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (adminKey.trim()) {
-      localStorage.setItem('adminKey', adminKey)
-      setIsAuthenticated(true)
-      fetchIdeas(adminKey)
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      const data = await response.json()
+      if (data.user) {
+        setUserData(data.user)
+        if (data.user.isAdmin) {
+          fetchIdeas()
+        } else {
+          setLoading(false)
+        }
+      } else {
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      setLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminKey')
-    setAdminKey('')
-    setIsAuthenticated(false)
-    setIdeas([])
-  }
-
-  const fetchIdeas = async (key?: string) => {
+  const fetchIdeas = async () => {
     try {
       const response = await fetch('/api/ideas', {
-        headers: {
-          'x-admin-key': key || adminKey
-        }
+        credentials: 'include'
       })
       
       if (response.ok) {
         const data = await response.json()
         setIdeas(data.ideas || [])
       } else if (response.status === 401) {
-        setIsAuthenticated(false)
-        localStorage.removeItem('adminKey')
+        // User is not authenticated or not an admin
+        console.error('Unauthorized access to admin')
       }
     } catch (err) {
       console.error('Failed to fetch ideas:', err)
@@ -75,9 +84,9 @@ export default function AdminPage() {
       const response = await fetch(`/api/ideas/${ideaId}/status`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': adminKey
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ status: newStatus })
       })
 
@@ -98,9 +107,7 @@ export default function AdminPage() {
     try {
       const response = await fetch(`/api/ideas/${ideaId}/approve`, {
         method: 'PUT',
-        headers: {
-          'x-admin-key': adminKey
-        }
+        credentials: 'include'
       })
 
       if (response.ok) {
@@ -126,9 +133,9 @@ export default function AdminPage() {
       const response = await fetch(`/api/ideas/${ideaId}/schedule`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          'x-admin-key': adminKey
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ 
           scheduledDate: new Date(scheduledDate).toISOString(),
           youtubeLink 
@@ -172,44 +179,49 @@ export default function AdminPage() {
     }
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-md mx-auto px-8">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
-          <h1 className="text-2xl font-bold mb-6 text-white text-center">Admin Login</h1>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label htmlFor="adminKey" className="block text-sm font-medium text-white mb-2">
-                Admin Key
-              </label>
-              <input
-                type="password"
-                id="adminKey"
-                value={adminKey}
-                onChange={(e) => setAdminKey(e.target.value)}
-                required
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter admin key"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors"
-            >
-              Login
-            </button>
-          </form>
-        </div>
-      </div>
-    )
-  }
-
-  if (loading) {
+  // Show loading while Auth0 is checking authentication
+  if (isLoading || loading) {
     return (
       <div className="max-w-6xl mx-auto px-8">
         <div className="text-center py-16">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-gray-400 mt-4">Loading admin dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="max-w-md mx-auto px-8">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
+          <h1 className="text-2xl font-bold mb-6 text-white text-center">Admin Access Required</h1>
+          <p className="text-gray-400 mb-6 text-center">Please sign in to access the admin dashboard.</p>
+          <a
+            href="/api/auth/login"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors block text-center"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // Show access denied if not admin
+  if (userData && !userData.isAdmin) {
+    return (
+      <div className="max-w-md mx-auto px-8">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
+          <h1 className="text-2xl font-bold mb-6 text-white text-center">Access Denied</h1>
+          <p className="text-gray-400 mb-6 text-center">You don't have admin privileges to access this page.</p>
+          <a
+            href="/"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium transition-colors block text-center"
+          >
+            Go Home
+          </a>
         </div>
       </div>
     )
@@ -223,13 +235,16 @@ export default function AdminPage() {
     <div className="max-w-6xl mx-auto px-8">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
+        <div>
+          <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
+          {userData && <p className="text-gray-400 mt-2">Welcome, {userData.name || userData.email}</p>}
+        </div>
+        <a
+          href="/api/auth/logout"
           className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
         >
           Logout
-        </button>
+        </a>
       </div>
 
       {/* Stats */}
