@@ -97,43 +97,6 @@ export default function StreamsPage() {
     }
   }
 
-  const handleApprove = async (ideaId: string) => {
-    try {
-      const response = await fetch(`/api/ideas/${ideaId}/approve`, { method: 'POST' })
-      if (response.ok) {
-        fetchIdeas() // Refresh the list
-        alert('Idea approved!')
-      } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to approve idea')
-      }
-    } catch (err) {
-      console.error('Approve error:', err)
-      alert('Failed to approve idea')
-    }
-  }
-
-  const handleReject = async (ideaId: string) => {
-    if (!confirm('Are you sure you want to reject this idea?')) return
-    
-    try {
-      const response = await fetch(`/api/ideas/${ideaId}/status`, { 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Rejected' })
-      })
-      if (response.ok) {
-        fetchIdeas() // Refresh the list
-        alert('Idea rejected')
-      } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to reject idea')
-      }
-    } catch (err) {
-      console.error('Reject error:', err)
-      alert('Failed to reject idea')
-    }
-  }
 
   const handleVote = async (ideaId: string) => {
   if (!user) return (window.location.href = '/api/auth/login') as any
@@ -270,12 +233,6 @@ export default function StreamsPage() {
             <option value="Scheduled">Scheduled</option>
             <option value="Live">Live Now</option>
             <option value="Completed">Completed</option>
-            {userInfo?.isAdmin && !userInfoLoading && (
-              <>
-                <option value="Pending">Pending Review</option>
-                <option value="Rejected">Rejected</option>
-              </>
-            )}
           </select>
           
           <select 
@@ -292,8 +249,8 @@ export default function StreamsPage() {
 
       {/* Ideas List */}
       {loading ? (
-        <div className="grid lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
             <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-6 animate-pulse">
               <div className="h-4 bg-gray-800 rounded mb-3 w-3/4"></div>
               <div className="h-3 bg-gray-800 rounded mb-2 w-full"></div>
@@ -302,11 +259,11 @@ export default function StreamsPage() {
           ))}
         </div>
       ) : ideas.length > 0 ? (
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
           {ideas.map((idea) => (
             <div key={idea.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:bg-gray-800 transition-colors">
               <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(idea.status)}`}>
                     {idea.status}
                   </span>
@@ -314,42 +271,32 @@ export default function StreamsPage() {
                     {idea.category}
                   </span>
                 </div>
-                
-                {user && idea.status === 'Approved' && (
-                  <button
-                    onClick={() => handleVote(idea.id)}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
-                      userVotes.has(idea.id)
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    <span>👍</span>
-                    <span>{idea.voteCount}</span>
-                  </button>
-                )}
               </div>
               
-              <h3 className="text-xl font-semibold mb-3 text-white">{idea.title}</h3>
-              <p className="text-gray-400 mb-4 leading-relaxed">{idea.description}</p>
+              <h3 className="text-xl font-semibold mb-3 text-white line-clamp-2">{idea.title}</h3>
+              <p className="text-gray-400 mb-4 leading-relaxed line-clamp-3">{idea.description}</p>
               
-              {/* Admin Actions */}
-              {userInfo?.isAdmin && !userInfoLoading && idea.status === 'Pending' && (
-                <div className="mb-4 flex gap-2">
+              {/* Voting Section */}
+              {user && idea.status === 'Approved' && (
+                <div className="mb-4">
                   <button
-                    onClick={() => handleApprove(idea.id)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                    onClick={() => handleVote(idea.id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium w-full justify-center ${
+                      userVotes.has(idea.id)
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                    aria-label={`${userVotes.has(idea.id) ? 'Remove vote from' : 'Vote for'} ${idea.title}`}
                   >
-                    ✅ Approve
-                  </button>
-                  <button
-                    onClick={() => handleReject(idea.id)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    ❌ Reject
+                    <span className="text-lg" aria-hidden="true">👍</span>
+                    <span className="text-sm font-semibold">
+                      {userVotes.has(idea.id) ? 'Voted' : 'Vote'} ({idea.voteCount})
+                    </span>
                   </button>
                 </div>
               )}
+              
+
               
               <div className="text-sm text-gray-500 space-y-1">
                 <p>Submitted: {formatDate(idea.submittedAt)}</p>
@@ -362,6 +309,7 @@ export default function StreamsPage() {
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1"
+                    aria-label={`Watch ${idea.title} on YouTube`}
                   >
                     Watch on YouTube <span aria-hidden="true">→</span>
                   </a>

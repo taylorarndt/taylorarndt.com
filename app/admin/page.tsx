@@ -38,23 +38,31 @@ export default function AdminPage() {
 
   const fetchUserData = async () => {
     try {
+      console.log('[ADMIN] Fetching user data from /api/auth/me...')
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
         cache: 'no-store',
       })
+      console.log('[ADMIN] Response status:', response.status)
       const data = await response.json()
+      console.log('[ADMIN] Response data:', data)
+      
       if (data.user) {
+        console.log('[ADMIN] Setting user data:', data.user)
         setUserData(data.user)
         if (data.user.isAdmin) {
+          console.log('[ADMIN] User is admin, fetching ideas...')
           fetchIdeas()
         } else {
+          console.log('[ADMIN] User is not admin, showing access denied')
           setLoading(false)
         }
       } else {
+        console.log('[ADMIN] No user data received')
         setLoading(false)
       }
     } catch (error) {
-      console.error('Error fetching user data:', error)
+      console.error('[ADMIN] Error fetching user data:', error)
       setLoading(false)
     }
   }
@@ -239,12 +247,20 @@ export default function AdminPage() {
           <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
           {userData && <p className="text-gray-400 mt-2">Welcome, {userData.name || userData.email}</p>}
         </div>
-        <a
-          href="/api/auth/logout"
-          className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
-        >
-          Logout
-        </a>
+        <div className="flex gap-4">
+          <a
+            href="/admin/debug"
+            className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            🔧 Debug
+          </a>
+          <a
+            href="/api/auth/logout"
+            className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            Logout
+          </a>
+        </div>
       </div>
 
       {/* Stats */}
