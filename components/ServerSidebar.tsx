@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 export default async function ServerSidebar() {
   // Avoid using Auth0 SDK in Server Components to prevent cookie warnings
   // Fetch from our API which reads the session server-side
-  let user: { email?: string; name?: string } | null = null
+  let user: { email?: string; name?: string; isAdmin?: boolean } | null = null
   try {
     const cookieHeader = cookies().toString()
     const res = await fetch(`${process.env.AUTH0_BASE_URL || ''}/api/auth/me`, {
@@ -45,6 +45,11 @@ export default async function ServerSidebar() {
         <a href="/resources" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">
           <span>Resources</span>
         </a>
+        {user?.isAdmin && (
+          <a href="/admin" className="flex items-center gap-3 px-3 py-2 text-purple-300 hover:bg-purple-900/20 hover:text-purple-200 rounded-lg transition-colors border border-purple-800/30">
+            <span>🔧 Admin Dashboard</span>
+          </a>
+        )}
         <div className="pt-4 border-t border-gray-800 mt-4">
           {user ? (
             <div className="flex flex-col gap-2">
