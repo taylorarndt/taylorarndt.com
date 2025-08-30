@@ -7,13 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-  "heroku-postbuild": "next build",
-  "db:migrate": "node scripts/db-migrate.cjs"
+    "heroku-postbuild": "next build",
+    "db:migrate": "node scripts/db-migrate.cjs",
+    "admin": "node scripts/admin-manager.js"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^3.5.0",
     "@sendgrid/mail": "^8.1.0",
     "@types/react-dom": "^18.3.0",
-  "@auth0/nextjs-auth0": "^3.5.0",
+    "dotenv": "^17.2.1",
     "next": "^14.2.5",
     "pg": "^8.12.0",
     "react": "^18.3.1",
