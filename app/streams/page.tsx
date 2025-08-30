@@ -1,5 +1,4 @@
 "use client"
-
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { useState, useEffect } from 'react'
 
@@ -27,12 +26,14 @@ export default function StreamsPage() {
   const { user, isLoading: authLoading } = useUser()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [userVotes, setUserVotes] = useState<Set<string>>(new Set())
+  const [pendingVoteIds, setPendingVoteIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created')
   const [showLogin] = useState(false)
   const [userInfo, setUserInfo] = useState<{ email?: string; name?: string; isAdmin?: boolean } | null>(null)
   const [userInfoLoading, setUserInfoLoading] = useState(false)
+  const [liveMessage, setLiveMessage] = useState('')
 
   useEffect(() => {
     fetchIdeas()
@@ -102,6 +103,7 @@ export default function StreamsPage() {
   if (!user) return (window.location.href = '/api/auth/login') as any
 
     try {
+      setPendingVoteIds(prev => new Set(prev).add(ideaId))
       const hasVoted = userVotes.has(ideaId)
       const method = hasVoted ? 'DELETE' : 'POST'
       const response = await fetch(`/api/ideas/${ideaId}/vote`, { method })
@@ -123,6 +125,13 @@ export default function StreamsPage() {
           }
           return newVotes
         })
+
+        // Announce change for screen readers
+        const changedIdea = ideas.find(i => i.id === ideaId)
+        const title = changedIdea ? changedIdea.title : 'this idea'
+        setLiveMessage(`${hasVoted ? 'Removed vote from' : 'Voted for'} ${title}. Total votes: ${data.voteCount}.`)
+        // Clear message after a short delay
+        setTimeout(() => setLiveMessage(''), 2000)
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to vote')
@@ -130,6 +139,12 @@ export default function StreamsPage() {
     } catch (err) {
       console.error('Vote error:', err)
       alert('Failed to vote')
+    } finally {
+      setPendingVoteIds(prev => {
+        const n = new Set(prev)
+        n.delete(ideaId)
+        return n
+      })
     }
   }
 
@@ -172,6 +187,8 @@ export default function StreamsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-8">
+  {/* Live region for announcing vote updates to assistive tech */}
+  <span className="sr-only" role="status" aria-live="polite">{liveMessage}</span>
       {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold mb-6 text-white">YouTube Live Stream Ideas</h1>
@@ -262,39 +279,75 @@ export default function StreamsPage() {
         <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-6">
           {ideas.map((idea) => (
             <div key={idea.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 hover:bg-gray-800 transition-colors">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex gap-2 flex-wrap">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(idea.status)}`}>
-                    {idea.status}
-                  </span>
-                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+              {/* Header: Title | Category | Votes | Vote button */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h3 className="text-xl font-semibold text-white line-clamp-2 mr-3">{idea.title}</h3>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300" aria-label={`Category: ${idea.category}`}>
                     {idea.category}
                   </span>
+                  <span
+                    className="inline-flex items-center gap-1 bg-gray-800 text-gray-200 px-2 py-1 rounded text-xs font-medium"
+                    title="Total votes"
+                    aria-label={`${idea.voteCount} votes`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span aria-hidden="true">👍</span>
+                    <span>{idea.voteCount}</span>
+                    <span className="sr-only">votes</span>
+                  </span>
+                  {user && idea.status === 'Approved' && (
+                    userVotes.has(idea.id) ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="px-2 py-1 rounded-lg bg-green-700 text-white text-xs font-semibold inline-flex items-center gap-1"
+                          aria-label={`You have voted for ${idea.title}`}
+                        >
+                          <span aria-hidden="true">✔</span>
+                          Voted
+                        </span>
+                        <button
+                          onClick={() => handleVote(idea.id)}
+                          disabled={pendingVoteIds.has(idea.id)}
+                          aria-busy={pendingVoteIds.has(idea.id)}
+                          className={`px-2 py-1 rounded-lg text-white text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 border ${
+                            pendingVoteIds.has(idea.id)
+                              ? 'bg-red-900 border-red-900 cursor-not-allowed'
+                              : 'bg-red-700 hover:bg-red-800 border-red-700'
+                          }`}
+                          aria-label={`Remove your vote for ${idea.title}`}
+                          title="Remove your vote"
+                        >
+                          {pendingVoteIds.has(idea.id) ? 'Removing…' : 'Remove vote'}
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleVote(idea.id)}
+                        disabled={pendingVoteIds.has(idea.id)}
+                        aria-busy={pendingVoteIds.has(idea.id)}
+                        className={`px-3 py-1.5 rounded-lg text-white text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                          pendingVoteIds.has(idea.id)
+                            ? 'bg-blue-900 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                        aria-label={`Vote for ${idea.title}`}
+                      >
+                        {pendingVoteIds.has(idea.id) ? 'Voting…' : 'Vote'}
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
-              
-              <h3 className="text-xl font-semibold mb-3 text-white line-clamp-2">{idea.title}</h3>
+              {/* Status chip below header for clarity */}
+              <div className="mb-2">
+                <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(idea.status)}`} aria-label={`Status: ${idea.status}`}>
+                  {idea.status}
+                </span>
+              </div>
               <p className="text-gray-400 mb-4 leading-relaxed line-clamp-3">{idea.description}</p>
               
-              {/* Voting Section */}
-              {user && idea.status === 'Approved' && (
-                <div className="mb-4">
-                  <button
-                    onClick={() => handleVote(idea.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium w-full justify-center ${
-                      userVotes.has(idea.id)
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                    aria-label={`${userVotes.has(idea.id) ? 'Remove vote from' : 'Vote for'} ${idea.title}`}
-                  >
-                    <span className="text-lg" aria-hidden="true">👍</span>
-                    <span className="text-sm font-semibold">
-                      {userVotes.has(idea.id) ? 'Voted' : 'Vote'} ({idea.voteCount})
-                    </span>
-                  </button>
-                </div>
-              )}
               
 
               
