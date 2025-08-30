@@ -17,63 +17,36 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  console.log('[Profile] Component render start')
-  const { user, isLoading: authLoading } = useUser()
-  console.log('[Profile] Auth state:', { authLoading, hasUser: !!user, userEmail: user?.email })
-  
+  const { user, isLoading: authLoading, error: authError } = useUser()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
   
   // Form state
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [bio, setBio] = useState('')
 
-  // Load profile data
-  useEffect(() => {
-    console.log('[Profile] useEffect triggered:', { authLoading, user: !!user })
-    
-    if (!authLoading && !user) {
-      console.log('[Profile] No user, redirecting to login')
-      window.location.href = '/api/auth/login'
-      return
-    }
-
-    if (user?.email) {
-      console.log('[Profile] User found, fetching profile for:', user.email)
-      fetchProfile()
-    } else {
-      console.log('[Profile] User not ready yet, waiting...')
-    }
-  }, [user, authLoading])
-
-  // Timeout mechanism to prevent infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.log('[Profile] Timeout reached, forcing loading to false')
-        setLoading(false)
-        setError('Failed to load profile - timeout reached')
-      }
-    }, 10000) // 10 second timeout
-
-    return () => clearTimeout(timeout)
-  }, [loading])
+  // Debug function
+  const addDebug = (message: string) => {
+    console.log(`[Profile] ${message}`)
+    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`])
+  }
 
   const fetchProfile = async () => {
     try {
-      console.log('[Profile] Starting fetchProfile...')
+      addDebug('Starting fetchProfile...')
       setLoading(true)
       setError(null)
       
-      console.log('[Profile] Making request to /api/user/profile')
+      addDebug('Making request to /api/user/profile')
       const res = await fetch('/api/user/profile')
       const data = await res.json()
       
-      console.log('[Profile] API response:', { status: res.status, data })
+      addDebug(`API response: ${res.status} - ${JSON.stringify(data)}`)
       
       if (!res.ok) throw new Error(data.error || 'Failed to load profile')
       
@@ -81,15 +54,58 @@ export default function ProfilePage() {
       setFirstName(data.profile.firstName || '')
       setLastName(data.profile.lastName || '')
       setBio(data.profile.bio || '')
-      console.log('[Profile] Profile loaded successfully')
+      addDebug('Profile loaded successfully')
     } catch (err: unknown) {
-      console.error('[Profile] Error fetching profile:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      addDebug(`Error fetching profile: ${errorMsg}`)
+      setError(errorMsg)
     } finally {
       setLoading(false)
-      console.log('[Profile] fetchProfile complete, loading set to false')
+      addDebug('fetchProfile complete, loading set to false')
     }
   }
+
+  // Load profile data
+  useEffect(() => {
+    addDebug(`useEffect triggered: authLoading=${authLoading}, hasUser=${!!user}, authError=${authError}`)
+    
+    if (authError) {
+      addDebug(`Auth error: ${authError.message}`)
+      setError(`Authentication error: ${authError.message}`)
+      setLoading(false)
+      return
+    }
+    
+    if (!authLoading && !user) {
+      addDebug('No user, redirecting to login')
+      window.location.href = '/api/auth/login'
+      return
+    }
+
+    if (user?.email) {
+      addDebug(`User found: ${user.email}`)
+      fetchProfile()
+    } else if (!authLoading) {
+      addDebug('Auth complete but no user found')
+      setError('No user information available')
+      setLoading(false)
+    }
+  }, [user, authLoading, authError])
+
+  // Emergency timeout
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        addDebug('Emergency timeout reached - forcing page to show')
+        setLoading(false)
+        if (!error) {
+          setError('Profile loading timed out. Please refresh the page.')
+        }
+      }
+    }, 8000)
+
+    return () => clearTimeout(timeout)
+  }, [loading, error])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -124,8 +140,10 @@ export default function ProfilePage() {
     }
   }
 
+  // Show debug info in development
+  const showDebug = process.env.NODE_ENV === 'development' || error
+
   if (authLoading || loading) {
-    console.log('[Profile] Showing loading state:', { authLoading, loading })
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="animate-pulse">
@@ -137,6 +155,14 @@ export default function ProfilePage() {
             <div className="h-24 bg-gray-800 rounded"></div>
           </div>
         </div>
+        {showDebug && (
+          <div className="mt-4 p-4 bg-gray-800 rounded text-xs">
+            <p className="text-yellow-400 mb-2">Debug Info:</p>
+            {debugInfo.map((info, i) => (
+              <p key={i} className="text-gray-300">{info}</p>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -151,6 +177,14 @@ export default function ProfilePage() {
         >
           Log In
         </a>
+        {showDebug && (
+          <div className="mt-4 p-4 bg-gray-800 rounded text-xs text-left">
+            <p className="text-yellow-400 mb-2">Debug Info:</p>
+            {debugInfo.map((info, i) => (
+              <p key={i} className="text-gray-300">{info}</p>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -198,6 +232,16 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* Debug Info */}
+        {showDebug && (
+          <div className="mb-6 p-4 bg-gray-800 rounded text-xs">
+            <p className="text-yellow-400 mb-2">Debug Info:</p>
+            {debugInfo.map((info, i) => (
+              <p key={i} className="text-gray-300">{info}</p>
+            ))}
+          </div>
+        )}
 
         {/* Error/Success Messages */}
         {error && (
