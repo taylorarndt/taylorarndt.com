@@ -1,6 +1,6 @@
 "use client"
 import { useUser } from '@auth0/nextjs-auth0/client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Idea {
   id: string
@@ -34,6 +34,8 @@ export default function StreamsPage() {
   const [userInfo, setUserInfo] = useState<{ email?: string; name?: string; isAdmin?: boolean } | null>(null)
   const [userInfoLoading, setUserInfoLoading] = useState(false)
   const [liveMessage, setLiveMessage] = useState('')
+  const [sseConnected, setSseConnected] = useState(false)
+  const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
     fetchIdeas()
@@ -46,6 +48,68 @@ export default function StreamsPage() {
       fetchUserInfo()
     }
   }, [user?.email, authLoading]) // Trigger when user email is available and not loading
+
+  // SSE connection for real-time vote updates
+  useEffect(() => {
+    if (!ideas.length) return // Wait for ideas to load first
+
+    const connectSSE = () => {
+      try {
+        const eventSource = new EventSource('/api/ideas/vote-updates')
+        eventSourceRef.current = eventSource
+
+        eventSource.onopen = () => {
+          setSseConnected(true)
+          console.log('SSE connected for real-time vote updates')
+        }
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            
+            if (data.type === 'vote_update') {
+              // Update specific idea's vote count
+              setIdeas(prev => prev.map(idea => 
+                idea.id === data.ideaId 
+                  ? { ...idea, voteCount: data.voteCount }
+                  : idea
+              ))
+            } else if (data.type === 'vote_counts') {
+              // Update all vote counts (initial load)
+              setIdeas(prev => prev.map(idea => ({
+                ...idea,
+                voteCount: data.voteCounts[idea.id] || idea.voteCount
+              })))
+            }
+          } catch (err) {
+            console.error('Error parsing SSE data:', err)
+          }
+        }
+
+        eventSource.onerror = (error) => {
+          console.error('SSE error:', error)
+          setSseConnected(false)
+          eventSource.close()
+          
+          // Retry connection after 5 seconds
+          setTimeout(connectSSE, 5000)
+        }
+      } catch (err) {
+        console.error('Failed to connect SSE:', err)
+        setSseConnected(false)
+      }
+    }
+
+    connectSSE()
+
+    // Cleanup on unmount
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+        setSseConnected(false)
+      }
+    }
+  }, [ideas.length])
 
   const fetchUserInfo = async () => {
     setUserInfoLoading(true)
@@ -111,11 +175,7 @@ export default function StreamsPage() {
       if (response.ok) {
         const data = await response.json()
         
-        // Update local state
-        setIdeas(prev => prev.map(idea => 
-          idea.id === ideaId ? { ...idea, voteCount: data.voteCount } : idea
-        ))
-        
+        // Update user vote state (SSE will handle vote count updates)
         setUserVotes(prev => {
           const newVotes = new Set(prev)
           if (hasVoted) {
@@ -213,6 +273,14 @@ export default function StreamsPage() {
       <a href="/api/auth/login" className="btn btn-primary">Login to Submit Ideas</a>
           </div>
         )}
+      </div>
+
+      {/* Real-time Connection Status */}
+      <div className="flex justify-center mb-6">
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm ${sseConnected ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'}`}>
+          <div className={`w-2 h-2 rounded-full ${sseConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
+          {sseConnected ? 'Real-time updates active' : 'Connecting to real-time updates...'}
+        </div>
       </div>
 
       {/* Debug Info */}
