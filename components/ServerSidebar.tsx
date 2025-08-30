@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import ClientUserSection from './ClientUserSection'
 
 export default async function ServerSidebar() {
   // Avoid using Auth0 SDK in Server Components to prevent cookie warnings
@@ -16,7 +17,7 @@ export default async function ServerSidebar() {
       const data = await res.json()
       user = data.user || null
     }
-  } catch (_) {
+  } catch {
     // ignore
   }
   return (
@@ -51,14 +52,7 @@ export default async function ServerSidebar() {
           </a>
         )}
         <div className="pt-4 border-t border-gray-800 mt-4">
-          {user ? (
-            <div className="flex flex-col gap-2">
-              <span className="text-gray-300 text-sm">{user.name || user.email}</span>
-              <a href="/api/auth/logout" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">Logout</a>
-            </div>
-          ) : (
-            <a href="/api/auth/login" className="flex items-center gap-3 px-3 py-2 text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors">Login</a>
-          )}
+          <ClientUserSection user={user} />
         </div>
       </nav>
     </aside>
