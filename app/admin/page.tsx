@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
+import Calendar from '../../components/Calendar'
+import QuickEditModal from '../../components/QuickEditModal'
+import BulkActions from '../../components/BulkActions'
 
 interface Idea {
   id: string
@@ -16,6 +19,19 @@ interface Idea {
   voteCount: number
 }
 
+interface Stream {
+  id: string
+  title: string
+  description: string
+  category: string
+  status: 'Scheduled' | 'Live' | 'Completed' | 'Cancelled'
+  submittedBy: string
+  submittedAt: string
+  scheduledDate?: string
+  youtubeLink?: string
+  completedAt?: string
+}
+
 interface UserData {
   email: string
   name: string
@@ -24,8 +40,13 @@ interface UserData {
 
 export default function AdminPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
+  const [streams, setStreams] = useState<Stream[]>([])
   const [loading, setLoading] = useState(true)
   const [userData, setUserData] = useState<UserData | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [selectedStream, setSelectedStream] = useState<Stream | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedStreams, setSelectedStreams] = useState<string[]>([])
   const { user, error, isLoading } = useUser()
 
   useEffect(() => {
@@ -51,8 +72,8 @@ export default function AdminPage() {
         console.log('[ADMIN] Setting user data:', data.user)
         setUserData(data.user)
         if (data.user.isAdmin) {
-          console.log('[ADMIN] User is admin, fetching ideas...')
-          fetchIdeas()
+          console.log('[ADMIN] User is admin, fetching ideas and streams...')
+          await Promise.all([fetchIdeas(), fetchStreams()])
         } else {
           console.log('[ADMIN] User is not admin, showing access denied')
           setLoading(false)
@@ -64,6 +85,23 @@ export default function AdminPage() {
     } catch (error) {
       console.error('[ADMIN] Error fetching user data:', error)
       setLoading(false)
+    }
+  }
+
+  const fetchStreams = async () => {
+    try {
+      const response = await fetch('/api/streams', {
+        credentials: 'include'
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setStreams(data.streams || [])
+      } else if (response.status === 401) {
+        console.error('Unauthorized access to streams')
+      }
+    } catch (err) {
+      console.error('Failed to fetch streams:', err)
     }
   }
 
@@ -99,7 +137,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchIdeas()
+        await Promise.all([fetchIdeas(), fetchStreams()])
         alert('Status updated successfully')
       } else {
         const error = await response.json()
@@ -119,7 +157,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchIdeas()
+        await Promise.all([fetchIdeas(), fetchStreams()])
         alert('Idea approved successfully')
       } else {
         const error = await response.json()
@@ -151,7 +189,7 @@ export default function AdminPage() {
       })
 
       if (response.ok) {
-        await fetchIdeas()
+        await Promise.all([fetchIdeas(), fetchStreams()])
         alert('Idea scheduled successfully')
       } else {
         const error = await response.json()
@@ -160,6 +198,103 @@ export default function AdminPage() {
     } catch (err) {
       console.error('Schedule error:', err)
       alert('Failed to schedule idea')
+    }
+  }
+
+  const handleStreamClick = (stream: Stream) => {
+    setSelectedStream(stream)
+    setIsModalOpen(true)
+  }
+
+  const handleDateClick = (date: Date) => {
+    // Could implement creating new streams on specific dates
+    console.log('Date clicked:', date)
+  }
+
+  const handleStreamDrop = async (streamId: string, newDate: Date) => {
+    try {
+      const response = await fetch(`/api/streams/${streamId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          scheduledDate: newDate.toISOString()
+        })
+      })
+
+      if (response.ok) {
+        await fetchStreams()
+        alert('Stream rescheduled successfully')
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to reschedule stream')
+      }
+    } catch (err) {
+      console.error('Reschedule error:', err)
+      alert('Failed to reschedule stream')
+    }
+  }
+
+  const handleStreamSelect = (streamId: string, selected: boolean) => {
+    setSelectedStreams(prev => 
+      selected 
+        ? [...prev, streamId]
+        : prev.filter(id => id !== streamId)
+    )
+  }
+
+  const handleBulkAction = async (action: 'Live' | 'Completed' | 'Cancelled', streamIds: string[]) => {
+    try {
+      const response = await fetch('/api/streams/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          streamIds,
+          status: action
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        await Promise.all([fetchIdeas(), fetchStreams()])
+        setSelectedStreams([])
+        alert(`Successfully updated ${data.updated} stream(s) to ${action}`)
+      } else {
+        const error = await response.json()
+        alert(error.error || 'Failed to bulk update streams')
+      }
+    } catch (err) {
+      console.error('Bulk action error:', err)
+      alert('Failed to bulk update streams')
+    }
+  }
+
+  const handleModalSave = async (streamId: string, updates: Partial<Stream>) => {
+    try {
+      const response = await fetch(`/api/streams/${streamId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(updates)
+      })
+
+      if (response.ok) {
+        await Promise.all([fetchIdeas(), fetchStreams()])
+        alert('Stream updated successfully')
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update stream')
+      }
+    } catch (err) {
+      console.error('Update stream error:', err)
+      throw err
     }
   }
 
@@ -248,6 +383,28 @@ export default function AdminPage() {
           {userData && <p className="text-gray-400 mt-2">Welcome, {userData.name || userData.email}</p>}
         </div>
         <div className="flex gap-4">
+          <div className="flex bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1 rounded text-sm transition-colors ${
+                viewMode === 'list' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              List View
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1 rounded text-sm transition-colors ${
+                viewMode === 'calendar' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Calendar View
+            </button>
+          </div>
           <a
             href="/admin/debug"
             className="px-4 py-2 border border-gray-600 text-white hover:bg-gray-800 rounded-lg transition-colors"
@@ -283,95 +440,125 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Ideas List */}
-      <div className="space-y-4">
-        {ideas.map(idea => (
-          <div key={idea.id} className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium text-white ${getStatusColor(idea.status)}`}>
-                    {idea.status}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    Votes: {idea.voteCount}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    Category: {idea.category}
-                  </span>
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">{idea.title}</h3>
-                <p className="text-gray-400 mb-3">{idea.description}</p>
-                <div className="text-sm text-gray-500">
-                  <p>Submitted by: {idea.submittedBy}</p>
-                  <p>Submitted: {formatDate(idea.submittedAt)}</p>
-                  {idea.scheduledDate && <p>Scheduled: {formatDate(idea.scheduledDate)}</p>}
+      {/* Calendar/List Content */}
+      {viewMode === 'calendar' ? (
+        <>
+          <BulkActions 
+            selectedStreams={selectedStreams}
+            onBulkAction={handleBulkAction}
+            onClearSelection={() => setSelectedStreams([])}
+          />
+          <Calendar
+            streams={streams}
+            onStreamClick={handleStreamClick}
+            onDateClick={handleDateClick}
+            onStreamDrop={handleStreamDrop}
+            selectedStreams={selectedStreams}
+            onStreamSelect={handleStreamSelect}
+          />
+          <QuickEditModal
+            stream={selectedStream}
+            isOpen={isModalOpen}
+            onClose={() => {
+              setIsModalOpen(false)
+              setSelectedStream(null)
+            }}
+            onSave={handleModalSave}
+          />
+        </>
+      ) : (
+        <>
+          {/* Ideas List */}
+          <div className="space-y-4">
+            {ideas.map(idea => (
+              <div key={idea.id} className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium text-white ${getStatusColor(idea.status)}`}>
+                        {idea.status}
+                      </span>
+                      <span className="text-sm text-gray-400">
+                        Votes: {idea.voteCount}
+                      </span>
+                      <span className="text-sm text-gray-400">
+                        Category: {idea.category}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">{idea.title}</h3>
+                    <p className="text-gray-400 mb-3">{idea.description}</p>
+                    <div className="text-sm text-gray-500">
+                      <p>Submitted by: {idea.submittedBy}</p>
+                      <p>Submitted: {formatDate(idea.submittedAt)}</p>
+                      {idea.scheduledDate && <p>Scheduled: {formatDate(idea.scheduledDate)}</p>}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 ml-4">
+                    {idea.status === 'Pending' && (
+                      <>
+                        <button
+                          onClick={() => handleApprove(idea.id)}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(idea.id, 'Rejected')}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    
+                    {idea.status === 'Approved' && (
+                      <button
+                        onClick={() => handleSchedule(idea.id)}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                      >
+                        Schedule
+                      </button>
+                    )}
+                    
+                    {idea.status === 'Scheduled' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange(idea.id, 'Live')}
+                          className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors"
+                        >
+                          Set Live
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(idea.id, 'Completed')}
+                          className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
+                        >
+                          Complete
+                        </button>
+                      </>
+                    )}
+                    
+                    {idea.status === 'Live' && (
+                      <button
+                        onClick={() => handleStatusChange(idea.id, 'Completed')}
+                        className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
+                      >
+                        Complete
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex flex-col gap-2 ml-4">
-                {idea.status === 'Pending' && (
-                  <>
-                    <button
-                      onClick={() => handleApprove(idea.id)}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(idea.id, 'Rejected')}
-                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
-                    >
-                      Reject
-                    </button>
-                  </>
-                )}
-                
-                {idea.status === 'Approved' && (
-                  <button
-                    onClick={() => handleSchedule(idea.id)}
-                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
-                  >
-                    Schedule
-                  </button>
-                )}
-                
-                {idea.status === 'Scheduled' && (
-                  <>
-                    <button
-                      onClick={() => handleStatusChange(idea.id, 'Live')}
-                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors"
-                    >
-                      Set Live
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(idea.id, 'Completed')}
-                      className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
-                    >
-                      Complete
-                    </button>
-                  </>
-                )}
-                
-                {idea.status === 'Live' && (
-                  <button
-                    onClick={() => handleStatusChange(idea.id, 'Completed')}
-                    className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm transition-colors"
-                  >
-                    Complete
-                  </button>
-                )}
+            ))}
+            
+            {ideas.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-400">No ideas submitted yet.</p>
               </div>
-            </div>
+            )}
           </div>
-        ))}
-        
-        {ideas.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-400">No ideas submitted yet.</p>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
