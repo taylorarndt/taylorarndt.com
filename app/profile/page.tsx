@@ -48,7 +48,14 @@ export default function ProfilePage() {
       
       addDebug(`API response: ${res.status} - ${JSON.stringify(data)}`)
       
-      if (!res.ok) throw new Error(data.error || 'Failed to load profile')
+      if (!res.ok) {
+        if (res.status === 401) {
+          addDebug('API returned 401 - redirecting to login')
+          window.location.href = '/api/auth/login'
+          return
+        }
+        throw new Error(data.error || 'Failed to load profile')
+      }
       
       setProfile(data.profile)
       setFirstName(data.profile.firstName || '')
@@ -69,6 +76,13 @@ export default function ProfilePage() {
   useEffect(() => {
     addDebug(`useEffect triggered: authLoading=${authLoading}, hasUser=${!!user}, authError=${authError}`)
     
+    // Add detailed user object debugging
+    if (user) {
+      addDebug(`User object keys: ${JSON.stringify(Object.keys(user))}`)
+      addDebug(`User email: ${user.email}`)
+      addDebug(`User object: ${JSON.stringify(user, null, 2)}`)
+    }
+    
     if (authError) {
       addDebug(`Auth error: ${authError.message}`)
       setError(`Authentication error: ${authError.message}`)
@@ -82,13 +96,17 @@ export default function ProfilePage() {
       return
     }
 
-    if (user?.email) {
-      addDebug(`User found: ${user.email}`)
-      fetchProfile()
-    } else if (!authLoading) {
-      addDebug('Auth complete but no user found')
-      setError('No user information available')
-      setLoading(false)
+    // Check if we have a user but we need to wait for Auth0 to fully populate it
+    if (!authLoading && user) {
+      if (user.email) {
+        addDebug(`User found with email: ${user.email}`)
+        fetchProfile()
+      } else {
+        // User exists but no email - this can happen during Auth0 loading
+        addDebug('User exists but no email property - will try to fetch profile anyway')
+        // Try to fetch profile anyway in case the API can get user info from session
+        fetchProfile()
+      }
     }
   }, [user, authLoading, authError])
 
@@ -167,7 +185,7 @@ export default function ProfilePage() {
     )
   }
 
-  if (!user) {
+  if (!user && !authLoading) {
     return (
       <div className="max-w-2xl mx-auto p-6 text-center">
         <h1 className="text-3xl font-bold mb-4">Please log in</h1>
@@ -189,7 +207,7 @@ export default function ProfilePage() {
     )
   }
 
-  const gravatarUrl = user.email ? getGravatarUrl(user.email, 128) : null
+  const gravatarUrl = (user?.email || profile?.email) ? getGravatarUrl(user?.email || profile?.email || '', 128) : null
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -211,9 +229,9 @@ export default function ProfilePage() {
           )}
           <div>
             <h2 className="text-xl font-semibold text-white mb-2">
-              {profile?.name || user.name || 'User'}
+              {profile?.name || user?.name || 'User'}
             </h2>
-            <p className="text-gray-400 mb-2">{user.email}</p>
+            <p className="text-gray-400 mb-2">{user?.email || profile?.email}</p>
             {profile?.isAdmin && (
               <p className="text-yellow-400 text-sm mb-2">
                 ⭐ Admin User
