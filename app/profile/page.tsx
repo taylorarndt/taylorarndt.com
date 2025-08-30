@@ -17,7 +17,10 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  console.log('[Profile] Component render start')
   const { user, isLoading: authLoading } = useUser()
+  console.log('[Profile] Auth state:', { authLoading, hasUser: !!user, userEmail: user?.email })
+  
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -31,23 +34,46 @@ export default function ProfilePage() {
 
   // Load profile data
   useEffect(() => {
+    console.log('[Profile] useEffect triggered:', { authLoading, user: !!user })
+    
     if (!authLoading && !user) {
+      console.log('[Profile] No user, redirecting to login')
       window.location.href = '/api/auth/login'
       return
     }
 
     if (user?.email) {
+      console.log('[Profile] User found, fetching profile for:', user.email)
       fetchProfile()
+    } else {
+      console.log('[Profile] User not ready yet, waiting...')
     }
   }, [user, authLoading])
 
+  // Timeout mechanism to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.log('[Profile] Timeout reached, forcing loading to false')
+        setLoading(false)
+        setError('Failed to load profile - timeout reached')
+      }
+    }, 10000) // 10 second timeout
+
+    return () => clearTimeout(timeout)
+  }, [loading])
+
   const fetchProfile = async () => {
     try {
+      console.log('[Profile] Starting fetchProfile...')
       setLoading(true)
       setError(null)
       
+      console.log('[Profile] Making request to /api/user/profile')
       const res = await fetch('/api/user/profile')
       const data = await res.json()
+      
+      console.log('[Profile] API response:', { status: res.status, data })
       
       if (!res.ok) throw new Error(data.error || 'Failed to load profile')
       
@@ -55,10 +81,13 @@ export default function ProfilePage() {
       setFirstName(data.profile.firstName || '')
       setLastName(data.profile.lastName || '')
       setBio(data.profile.bio || '')
+      console.log('[Profile] Profile loaded successfully')
     } catch (err: unknown) {
+      console.error('[Profile] Error fetching profile:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
+      console.log('[Profile] fetchProfile complete, loading set to false')
     }
   }
 
@@ -96,6 +125,7 @@ export default function ProfilePage() {
   }
 
   if (authLoading || loading) {
+    console.log('[Profile] Showing loading state:', { authLoading, loading })
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="animate-pulse">
@@ -150,6 +180,11 @@ export default function ProfilePage() {
               {profile?.name || user.name || 'User'}
             </h2>
             <p className="text-gray-400 mb-2">{user.email}</p>
+            {profile?.isAdmin && (
+              <p className="text-yellow-400 text-sm mb-2">
+                ⭐ Admin User
+              </p>
+            )}
             <p className="text-sm text-gray-500">
               Avatar powered by{' '}
               <a 
