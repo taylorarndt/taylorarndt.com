@@ -38,23 +38,31 @@ export default function AdminPage() {
 
   const fetchUserData = async () => {
     try {
+      console.log('[ADMIN] Fetching user data from /api/auth/me...')
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
         cache: 'no-store',
       })
+      console.log('[ADMIN] Response status:', response.status)
       const data = await response.json()
+      console.log('[ADMIN] Response data:', data)
+      
       if (data.user) {
+        console.log('[ADMIN] Setting user data:', data.user)
         setUserData(data.user)
         if (data.user.isAdmin) {
+          console.log('[ADMIN] User is admin, fetching ideas...')
           fetchIdeas()
         } else {
+          console.log('[ADMIN] User is not admin, showing access denied')
           setLoading(false)
         }
       } else {
+        console.log('[ADMIN] No user data received')
         setLoading(false)
       }
     } catch (error) {
-      console.error('Error fetching user data:', error)
+      console.error('[ADMIN] Error fetching user data:', error)
       setLoading(false)
     }
   }

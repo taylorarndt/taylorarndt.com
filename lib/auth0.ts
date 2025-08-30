@@ -26,8 +26,8 @@ export async function getServerUser() {
   // Check admin status from database
   let isAdmin = false
   try {
-  const emailLower = user.email.toLowerCase()
-  const adminEmailLower = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+    const emailLower = user.email.toLowerCase()
+    const adminEmailLower = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
     const envAdmin = adminEmailLower && emailLower === adminEmailLower
 
     const result = await query(

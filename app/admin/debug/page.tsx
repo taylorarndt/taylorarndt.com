@@ -24,16 +24,27 @@ export default function AdminDebugPage() {
   const fetchUserData = async () => {
     setLoading(true)
     try {
+      console.log('[DEBUG] Fetching user data from /api/auth/me...')
       const response = await fetch('/api/auth/me')
+      console.log('[DEBUG] Response status:', response.status)
       const data = await response.json()
+      console.log('[DEBUG] Response data:', data)
       setUserData(data.user)
       setDebugInfo({
         auth0User: user,
         serverUser: data.user,
+        apiResponse: data,
+        responseStatus: response.status,
         timestamp: new Date().toISOString()
       })
     } catch (err) {
       console.error('Error fetching user data:', err)
+      setDebugInfo({
+        auth0User: user,
+        serverUser: null,
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: new Date().toISOString()
+      })
     } finally {
       setLoading(false)
     }
@@ -126,6 +137,18 @@ export default function AdminDebugPage() {
               <p className="text-gray-300 text-sm">
                 ℹ️ Admin email is checked server-side and not exposed to client
               </p>
+              
+              {/* Environment Variable Check */}
+              <div className="mt-4 p-3 bg-orange-900 border border-orange-700 rounded">
+                <p className="text-orange-200 text-sm">
+                  ⚠️ <strong>Common Issue:</strong> If you see "Not authenticated" or admin status is wrong, 
+                  check that these environment variables are set:
+                  <br />
+                  <code className="text-orange-100">AUTH0_SECRET, AUTH0_ISSUER_BASE_URL, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET, ADMIN_EMAIL</code>
+                  <br />
+                  Missing AUTH0 configuration will prevent session creation entirely.
+                </p>
+              </div>
             </div>
           </div>
         </div>
