@@ -1,22 +1,8 @@
 import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 import fs from 'fs/promises'
+import { checkRateLimit, getClientIp, RATE_LIMITS } from '../../../../lib/rate-limit'
 
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const windowMs = 15 * 60 * 1000
-  const maxRequests = 5
-  const entry = rateLimitMap.get(ip)
-  if (!entry || now > entry.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs })
-    return true
-  }
-  if (entry.count >= maxRequests) return false
-  entry.count++
-  return true
-}
 
 function sanitize(input: string) {
   return input.replace(/[<>]/g, '').trim()
@@ -52,9 +38,8 @@ async function verifyTurnstile(token: string): Promise<boolean> {
 
 export async function POST(req: Request) {
   try {
-    const forwarded = req.headers.get('x-forwarded-for')
-    const ip = forwarded ? forwarded.split(',')[0] : req.headers.get('x-real-ip') || 'unknown'
-    if (!checkRateLimit(ip)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    const clientIp = getClientIp(req)
+    if (!checkRateLimit(clientIp, RATE_LIMITS.SUBMISSION)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
 
     const form = await req.formData()
     const honeypot = String(form.get('website') || '').trim()
